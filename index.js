@@ -17,6 +17,7 @@ const uri =
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use("/auth", authRoute);
 app.use("/chat", chatRoute);
@@ -27,44 +28,60 @@ app.get("/", (req, res) => {
   res.send("Hello, world!");
 });
 
-const server = http.createServer(app); // Create HTTP server
+const server = http.createServer(app);
 const io = socketIo(server, {
-  // Pass the HTTP server instance to socket.io
   cors: {
-    origin: "http://localhost:3000", // Change to the origin of your frontend application
+    origin: "http://localhost:3000",
     methods: ["GET", "POST"],
   },
 });
 
 const activeChatIds = [];
-
+const activeUserIds = [];
 io.on("connection", (socket) => {
   const chatId = socket.handshake.query.chatId;
-
+  const userId = socket.handshake.query.userId;
+  if (!activeUserIds.includes(userId)) {
+    activeUserIds.push(userId);
+    console.log("New userId added:", userId);
+  }
   if (!activeChatIds.includes(chatId)) {
     activeChatIds.push(chatId);
     console.log("New chatId added:", chatId);
   }
   socket.join(chatId);
+  socket.join(userId);
   console.log(activeChatIds);
-  console.log("A user connected");
+  console.log(activeUserIds, "activeUserIds");
 
-  socket.on("chat message", async ({ text, id, senderId }) => {
+  socket.on("chat message", async ({ text, id, senderId, recipientId }) => {
     const message = new messageModel({
       chatId: id,
       senderId: senderId,
+      recipientId: recipientId,
       text: text,
     });
     await message.save();
     activeChatIds.filter((chatId) => {
       if (chatId == id) {
-        io.to(chatId).emit("chat message", { text, chatId, senderId });
+        io.to(chatId).emit("chat message", { message });
+      }
+    });
+    io.to(senderId).emit("chat message", { message });
+    activeUserIds.filter((id) => {
+      if (id == recipientId) {
+        io.to(id).emit("chat message", { message });
       }
     });
   });
 
   socket.on("disconnect", () => {
     console.log("User disconnected");
+    const index = activeUserIds.indexOf(userId);
+    if (index !== -1) {
+      activeUserIds.splice(index, 1);
+      console.log("userId removed:", userId);
+    }
   });
 });
 

@@ -4,18 +4,15 @@ const userSchema = new mongoose.Schema(
   {
     username: {
       type: String,
-      minlength: 3,
-      maxlength: 30,
+      maxlength: 16,
     },
-    fisrtName: {
+    firstName: {
       type: String,
-      minlength: 3,
-      maxlength: 30,
+      maxlength: 16,
     },
     lastName: {
       type: String,
-      minlength: 3,
-      maxlength: 30,
+      maxlength: 16,
     },
     phone: {
       type: String,
@@ -23,6 +20,9 @@ const userSchema = new mongoose.Schema(
       minlength: 3,
       maxlength: 200,
       unique: true,
+    },
+    bio: {
+      type: String,
     },
   },
   {
