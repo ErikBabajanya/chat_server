@@ -12,4 +12,9 @@ const decodedToken = (token) => {
   }
 };
 
-module.exports = decodedToken;
+const generateTokenForUser = (_id, phone) => {
+  const jwtkey = process.env.JWT_SECRET_KEY;
+  return jwt.sign({ _id, phone }, jwtkey, { expiresIn: "3h" });
+};
+
+module.exports = { decodedToken, generateTokenForUser };

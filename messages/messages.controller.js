@@ -1,6 +1,8 @@
 const messageModel = require("./messages.model");
 const userModel = require("../user/user.model");
-const decodedToken = require("../jwt");
+const { decodedToken } = require("../jwt/jwt");
+const { findUserById } = require("../user/user.service");
+const { findMessages, findLastMessages } = require("./messages.service");
 
 const getMessages = async (req, res) => {
   const token = req.headers.authorization;
@@ -18,14 +20,14 @@ const getMessages = async (req, res) => {
 
   const _id = decode._id;
 
-  const user = await userModel.findById(_id);
+  const user = await findUserById(_id);
 
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
+  const messages = await findMessages(chatId);
 
   try {
-    const messages = await messageModel.find({ chatId: chatId });
     return res.status(200).json({ messages });
   } catch (error) {
     console.error("Error fetching messages:", error);
@@ -49,19 +51,15 @@ const getLastMessage = async (req, res) => {
 
   const _id = decode._id;
 
-  const user = await userModel.findById(_id);
+  const user = await findUserById(_id);
 
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
 
   try {
-    const lastMessage = await messageModel
-      .findOne({ chatId: chatId })
-      .sort({ createdAt: -1 })
-      .limit(1);
-
-    return res.status(200).json({ lastMessage });
+    const lastMessages = findLastMessages(chatId);
+    return res.status(200).json({ lastMessages });
   } catch (error) {
     console.error("Error fetching last message:", error);
     return res.status(500).json({ error: "Internal server error" });

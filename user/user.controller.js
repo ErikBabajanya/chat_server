@@ -1,11 +1,12 @@
-const userModel = require("./user.model");
-const decodedToken = require("../jwt");
+const { decodedToken } = require("../jwt/jwt");
+const { findUserById, changeUserInfo } = require("./user.service");
 
 const findMyUser = async (req, res) => {
   const token = req.headers.authorization;
   if (!token) {
     return res.status(401).json({ error: "Authorization token is missing." });
   }
+
   const decode = decodedToken(token);
 
   if (!decode) {
@@ -14,23 +15,28 @@ const findMyUser = async (req, res) => {
 
   const _id = decode._id;
 
-  const user = await userModel.findById(_id);
+  const user = await findUserById(_id);
 
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
+
   try {
     res.status(200).json(user);
   } catch (error) {
-    console.log(error);
     res.status(500).json(error);
   }
 };
 
 const chageMyUserInfo = async (req, res) => {
   const token = req.headers.authorization;
-  const info = req.body.formdata;
-  console.log(info);
+  const info = req.body;
+  const file = req.file;
+
+  const firstName = info.firstName;
+  const lastName = info.lastName;
+  const bio = info.bio;
+
   if (!token) {
     return res.status(401).json({ error: "Authorization token is missing." });
   }
@@ -41,22 +47,16 @@ const chageMyUserInfo = async (req, res) => {
   }
 
   const _id = decode._id;
-
+  console.log(_id);
   try {
-    const user = await userModel.findById(_id);
-
+    const user = await findUserById(_id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    console.log(user);
-    console.log(info.firstName);
-    user.firstName = info.firstName;
-    user.lastName = info.lastName;
-    user.bio = info.bio;
-    await user.save();
-    return res.status(200).json(user);
+    const newUser = await changeUserInfo(_id, firstName, lastName, bio, file);
+    if (!newUser) return (404).json({ error: "info dose note changed" });
+    return res.status(200).json(newUser);
   } catch (error) {
-    console.log(error);
     res.status(500).json(error);
   }
 };
