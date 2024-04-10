@@ -14,7 +14,12 @@ const findLastMessages = async (chatId) => {
   return lastMessages;
 };
 
+const deleteMessages = async (id) => {
+  return await messageModel.findByIdAndDelete(id);
+};
+
 module.exports = {
   findMessages,
   findLastMessages,
+  deleteMessages,
 };

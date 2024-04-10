@@ -3,7 +3,7 @@ const { findUserChats, createChat, findChat } = require("./chat.controller");
 
 const router = express.Router();
 
-router.post("/", createChat);
+router.post("/createChat", createChat);
 router.get("/findChats", findUserChats);
 router.get("/find/:secondId", findChat);
 

@@ -1,5 +1,9 @@
 const { decodedToken } = require("../jwt/jwt");
-const { findUserById, changeUserInfo } = require("./user.service");
+const {
+  findUserById,
+  changeUserInfo,
+  findUserByPhoneNumber,
+} = require("./user.service");
 
 const findMyUser = async (req, res) => {
   const token = req.headers.authorization;
@@ -9,12 +13,13 @@ const findMyUser = async (req, res) => {
 
   const decode = decodedToken(token);
 
+  console.log(decode);
   if (!decode) {
     return res.status(401).json({ error: "Invalid authorization token." });
   }
 
   const _id = decode._id;
-
+  console.log(_id);
   const user = await findUserById(_id);
 
   if (!user) {
@@ -47,7 +52,6 @@ const chageMyUserInfo = async (req, res) => {
   }
 
   const _id = decode._id;
-  console.log(_id);
   try {
     const user = await findUserById(_id);
     if (!user) {
@@ -61,4 +65,26 @@ const chageMyUserInfo = async (req, res) => {
   }
 };
 
-module.exports = { findMyUser, chageMyUserInfo };
+const searchUser = async (req, res) => {
+  const token = req.headers.authorization;
+  const value = req.body.value;
+  console.log(value, "__________");
+  if (!token) {
+    return res.status(401).json({ error: "Authorization token is missing." });
+  }
+
+  const decode = decodedToken(token);
+
+  if (!decode) {
+    return res.status(401).json({ error: "Invalid authorization token." });
+  }
+
+  const user = await findUserByPhoneNumber(value);
+
+  if (!user) {
+    return res.status(400).json({ message: "user note found" });
+  }
+  return res.status(200).json(user);
+};
+
+module.exports = { findMyUser, chageMyUserInfo, searchUser };

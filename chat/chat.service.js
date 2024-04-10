@@ -14,30 +14,41 @@ const findMyUsers = async (userId) => {
   const chats = await chatModel.find({
     members: { $in: [userId] },
   });
-  console.log(chats);
-  const users = await Promise.all(
+  if (chats.length === 0) {
+    return [];
+  }
+  const messages = await Promise.all(
     chats.map(async (chat) => {
-      try {
-        const msg = await messageModel
-          .findOne({ chatId: chat._id })
-          .sort({ createdAt: -1 })
-          .limit(1);
+      const mychats = await messageModel
+        .findOne({ chatId: chat._id })
+        .sort({ createdAt: -1 })
+        .limit(1);
 
-        let id, user;
-        if (chat.members[0] == userId) {
-          id = chat.members[1];
-        } else {
-          id = chat.members[0];
-        }
-        user = await findUserById(id);
-        return {
-          user: user,
-          lastMsg: msg,
-        };
-      } catch (error) {
-        console.error("Error occurred:", error);
-        return null;
+      if (mychats) return mychats;
+    })
+  );
+  const filteredMessages = messages.filter((message) => message !== undefined);
+
+  let sortMessages = [];
+  if (filteredMessages.length) {
+    sortMessages = filteredMessages.sort((a, b) => {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+  }
+
+  const users = await Promise.all(
+    sortMessages.map(async (message) => {
+      let id, user;
+      if (message.senderId === userId) {
+        id = message.recipientId;
+      } else {
+        id = message.senderId;
       }
+      user = await findUserById(id);
+      return {
+        user: user,
+        lastMsg: message,
+      };
     })
   );
   return users;

@@ -1,5 +1,3 @@
-const chatModel = require("./chat.model");
-
 const { decodedToken } = require("../jwt/jwt");
 const {
   findChatWithTwoUsersId,
@@ -26,11 +24,13 @@ const createChat = async (req, res) => {
 
 const findUserChats = async (req, res) => {
   const token = req.headers.authorization;
+  if (!token) return res.status(400).json({ error: "token note found" });
   const decode = decodedToken(token);
+
+  if (!decode) return res.status(401).json({ error: "authentikation faild" });
   const userId = decode._id;
   try {
     const users = await findMyUsers(userId);
-
     res.status(200).json(users);
   } catch (error) {
     res.status(500).json(error);
@@ -50,7 +50,10 @@ const findChat = async (req, res) => {
 
     const chat = await findSpecificChat(firstId, secondId);
 
-    if (!chat) return res.status(404).json({ error: "chat note found" });
+    if (!chat) {
+      const newChat = await createNewChat(firstId, secondId);
+      res.status(200).json(newChat);
+    }
     res.status(200).json(chat);
   } catch (error) {
     res.status(500).json(error);

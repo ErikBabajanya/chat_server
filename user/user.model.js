@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
+const Schema = mongoose.Schema;
 
-const userSchema = new mongoose.Schema(
+const userSchema = new Schema(
   {
     username: {
       type: String,
@@ -18,7 +19,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       minlength: 3,
-      maxlength: 200,
+      maxlength: 16,
       unique: true,
     },
     bio: {
@@ -26,6 +27,13 @@ const userSchema = new mongoose.Schema(
     },
     picture: {
       type: String,
+    },
+    online: {
+      type: Boolean,
+    },
+    unReadeMessage: {
+      type: Schema.Types.Mixed,
+      default: {},
     },
   },
   {

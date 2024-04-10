@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 
 const decodedToken = (token) => {
   const jwtkey = process.env.JWT_SECRET_KEY;
+
   try {
     const decoded = jwt.verify(token, jwtkey);
     const { _id, phone } = decoded;
@@ -13,8 +14,11 @@ const decodedToken = (token) => {
 };
 
 const generateTokenForUser = (_id, phone) => {
+  console.log(_id, phone);
   const jwtkey = process.env.JWT_SECRET_KEY;
-  return jwt.sign({ _id, phone }, jwtkey, { expiresIn: "3h" });
+  const expiresIn = process.env.EXPIRES_IN;
+
+  return jwt.sign({ _id, phone }, jwtkey, { expiresIn: expiresIn });
 };
 
 module.exports = { decodedToken, generateTokenForUser };

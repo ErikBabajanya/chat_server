@@ -8,13 +8,13 @@ const userRoute = require("./user/user.rotue");
 const messagesRoute = require("./messages/messages.route");
 const messageModel = require("./messages/messages.model");
 const socketIo = require("socket.io");
+const redis = require("redis");
+require("events").EventEmitter.defaultMaxListeners = 15;
 require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 5000;
-const uri =
-  "mongodb+srv://erikbabajanyan10:DzS7yINNlSUVjopI@tg.tp1sbow.mongodb.net/?retryWrites=true&w=majority&appName=Tg";
-
+const uri = process.env.ATLAS_URL;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -35,24 +35,79 @@ const io = socketIo(server, {
     methods: ["GET", "POST"],
   },
 });
+const client = redis.createClient({
+  password: "NsraI6eAOiYQKZNIkfKx94c3bxJJ6ihv",
+  socket: {
+    host: "redis-14447.c257.us-east-1-3.ec2.cloud.redislabs.com",
+    port: 14447,
+  },
+});
+client.connect();
+client.on("error", (err) => console.log("Redis Client Error", err));
 
-const activeChatIds = [];
-const activeUserIds = [];
+client.on("connect", () => {
+  console.log("Connected to Redis server");
+});
+
+client.on("ready", () => {
+  console.log("Redis client is ready");
+  client.set("framework", "ReactJS", function (err, reply) {
+    console.log(reply); // OK
+  });
+
+  client.get("framework", function (err, reply) {
+    console.log(reply); // ReactJS
+  });
+});
+
+client.on("end", () => {
+  console.log("Redis client connection has ended");
+});
+
+const activeChatIds = {};
+const activeUserIds = {};
+const unreadeMsg = {};
 io.on("connection", (socket) => {
-  const chatId = socket.handshake.query.chatId;
-  const userId = socket.handshake.query.userId;
-  if (!activeUserIds.includes(userId)) {
-    activeUserIds.push(userId);
-    console.log("New userId added:", userId);
-  }
-  if (!activeChatIds.includes(chatId)) {
-    activeChatIds.push(chatId);
-    console.log("New chatId added:", chatId);
-  }
-  socket.join(chatId);
-  socket.join(userId);
-  console.log(activeChatIds);
-  console.log(activeUserIds, "activeUserIds");
+  socket.on("userLoggedIn", async (userId) => {
+    if (userId) {
+      activeUserIds[userId] = true;
+      socket.join(userId);
+      if (unreadeMsg[userId]) {
+        const senderIds = Object.keys(unreadeMsg[userId]);
+        let unread = [];
+        senderIds.forEach(() => {
+          unread.push(unreadeMsg[userId]);
+        });
+        io.to(userId).emit("unreadMsg", unread);
+      } else {
+        console.log(`User ${userId} has no unread messages.`);
+      }
+    }
+  });
+
+  socket.on("chat connect", (chatId, userId) => {
+    if (chatId && userId) {
+      if (!activeChatIds[chatId]) {
+        activeChatIds[chatId] = [userId];
+      } else {
+        if (!activeChatIds[chatId].includes(userId)) {
+          activeChatIds[chatId].push(userId);
+        }
+      }
+      socket.join(chatId);
+    }
+  });
+  socket.on("close chat", (chatId, userId) => {
+    if (activeChatIds[chatId]) {
+      const index = activeChatIds[chatId].indexOf(userId);
+      if (index !== -1) {
+        activeChatIds[chatId].splice(index, 1);
+      }
+      if (activeChatIds[chatId].length === 0) {
+        delete activeChatIds[chatId];
+      }
+    }
+  });
 
   socket.on("chat message", async ({ text, id, senderId, recipientId }) => {
     const message = new messageModel({
@@ -61,26 +116,40 @@ io.on("connection", (socket) => {
       recipientId: recipientId,
       text: text,
     });
+
     await message.save();
-    activeChatIds.filter((chatId) => {
-      if (chatId == id) {
-        io.to(chatId).emit("chat message", { message });
+    io.to(id).emit("chat message", { message });
+    io.to(senderId).emit("lastMessage", { message });
+    io.to(recipientId).emit("lastMessage", { message });
+    if (!activeChatIds[id].includes(recipientId)) {
+      if (!unreadeMsg.hasOwnProperty(recipientId)) {
+        unreadeMsg[recipientId] = {};
       }
-    });
-    io.to(senderId).emit("chat message", { message });
-    activeUserIds.filter((id) => {
-      if (id == recipientId) {
-        io.to(id).emit("chat message", { message });
+      if (!unreadeMsg[recipientId].hasOwnProperty(senderId)) {
+        unreadeMsg[recipientId][senderId] = 1;
+      } else {
+        unreadeMsg[recipientId][senderId]++;
       }
-    });
+      console.log(unreadeMsg);
+    }
+  });
+
+  socket.on("writingMsg", ({ sender, recipient }) => {
+    io.to(recipient).emit("writingMsg", sender);
+  });
+  socket.on("stopWritingMsg", ({ sender, recipient }) => {
+    io.to(recipient).emit("stopWritingMsg", sender);
   });
 
   socket.on("disconnect", () => {
-    console.log("User disconnected");
-    const index = activeUserIds.indexOf(userId);
-    if (index !== -1) {
-      activeUserIds.splice(index, 1);
-      console.log("userId removed:", userId);
+    const userId = Object.keys(activeUserIds).find(
+      (key) => activeUserIds[key] === socket.id
+    );
+
+    if (userId) {
+      delete activeUserIds[userId];
+
+      socket.leave(userId);
     }
   });
 });
